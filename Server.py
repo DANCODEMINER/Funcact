@@ -307,6 +307,28 @@ def withdrawal_history():
 
     return jsonify({"history": history})
 
+@app.post("/user/get-profile")
+def get_profile():
+    data = request.get_json()
+    email = data.get("email")
+
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT name, country FROM users WHERE email = %s", (email,))
+    row = cur.fetchone()
+    conn.close()
+
+    if row:
+        return jsonify({
+            "name": row[0],
+            "country": row[1]
+        })
+    else:
+        return jsonify({"error": "User not found"}), 404
+
 # Make sure to run app
 # app.run(debug=True)  # Uncomment to test locally
 
