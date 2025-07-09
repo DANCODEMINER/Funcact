@@ -161,3 +161,103 @@ function fetchMyHashrate() {
     })
     .catch(() => console.error("Failed to fetch my hashrate"));
 }
+
+==watch ads start session==
+
+  function watchAd() {
+  const email = sessionStorage.getItem("email");
+  if (!email) return;
+
+  fetch("/user/watch-ad", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        showToast("✅ Mining session started!");
+        currentHashrate = data.hashrate; // from server
+        btcPerSecond = data.btc_per_sec; // from server
+        miningDuration = data.duration; // e.g., 120 sec
+
+        startMiningCounter();
+        startMiningSessionCountdown();
+        fetchDashboardSummary(); // Refresh UI
+      } else {
+        showToast("❌ " + data.error);
+      }
+    })
+    .catch(err => {
+      console.error("Failed to start mining session", err);
+      showToast("❌ Failed to start mining.");
+    });
+  }
+
+let miningInterval = null;
+let miningTimer = null;
+let minedBTC = 0;
+
+function startMiningCounter() {
+  clearInterval(miningInterval);
+  minedBTC = 0;
+
+  miningInterval = setInterval(() => {
+    minedBTC += btcPerSecond;
+    document.getElementById("btc-counter").innerText = minedBTC.toFixed(8) + " BTC";
+    document.getElementById("total-mined").innerText = minedBTC.toFixed(8) + " BTC";
+  }, 1000);
+}
+
+function startMiningSessionCountdown() {
+  clearTimeout(miningTimer);
+
+  miningTimer = setTimeout(() => {
+    stopMiningSession();
+  }, miningDuration * 1000);
+}
+
+function stopMiningSession() {
+  clearInterval(miningInterval);
+
+  const email = sessionStorage.getItem("email");
+  if (!email || !minedBTC) return;
+
+  // Send mined BTC to backend
+  fetch("/user/save-mined-btc", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email,
+      mined_btc: minedBTC.toFixed(8)
+    })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        showToast("✅ Mined BTC saved to your wallet.");
+        fetchDashboardSummary(); // Refresh values
+      } else {
+        showToast("⚠️ " + data.error);
+      }
+    })
+    .catch(err => {
+      console.error("Error saving mined BTC:", err);
+      showToast("❌ Failed to save mined BTC.");
+    });
+
+  minedBTC = 0;
+}
+
+function fetchDashboardSummary() {
+  fetchBTCCounter();
+  fetchTotalHashrate();
+  fetchTotalMined();
+  fetchTotalWithdrawn();
+  fetchActiveSessions();
+  fetchNextWithdrawalDate();
+  loadDashboardMessages();
+  fetchMyRank();
+  fetchMyBTC();
+  fetchMyHashrate();
+}
