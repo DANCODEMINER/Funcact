@@ -20,6 +20,30 @@ def get_email():
     data = request.get_json()
     return data.get("email")
 
+def update_user_balance(email, new_mined, new_withdrawn):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE users
+        SET total_mined = %s,
+            total_withdrawn = %s
+        WHERE email = %s
+    """, (new_mined, new_withdrawn, email))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def save_withdrawal(email, amount, wallet, status="Pending"):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO withdrawals (email, amount, wallet, status, date)
+        VALUES (%s, %s, %s, %s, NOW())
+    """, (email, amount, wallet, status))
+    conn.commit()
+    cur.close()
+    conn.close()
+
 # 1. BTC Counter
 @app.route("/user/save-btc-counter", methods=["POST"])
 def save_btc_counter():
@@ -206,6 +230,37 @@ def watch_ad():
     cur.close()
 
     return jsonify({"message": f"Ad watched. Hashrate +{hashrate_boost} Th/s for {duration} sec."})
+
+@app.route("/user/withdraw-now", methods=["POST"])
+def withdraw_now():
+    data = request.get_json()
+    email = data.get("email")
+    btc = float(data.get("btc", 0))
+    wallet = data.get("wallet", "").strip()
+
+    if not email or not btc or not wallet:
+        return jsonify({"error": "Missing withdrawal information"}), 400
+
+    user = get_user_by_email(email)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    mined = float(user.get("total_mined", 0))
+    withdrawn = float(user.get("total_withdrawn", 0))
+
+    if btc > mined:
+        return jsonify({"error": "Insufficient BTC balance"}), 400
+
+    new_mined = mined - btc
+    new_withdrawn = withdrawn + btc
+
+    # Update mined and withdrawn in DB
+    update_user_balance(email, new_mined, new_withdrawn)
+
+    # Save withdrawal record
+    save_withdrawal(email=email, amount=btc, wallet=wallet, status="Pending")
+
+    return jsonify({"message": "Withdrawal successful. BTC deducted."})
 
 # Make sure to run app
 # app.run(debug=True)  # Uncomment to test locally
