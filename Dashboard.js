@@ -292,3 +292,55 @@ function watchAd() {
       showToast("❌ Failed to log ad watch.");
     });
 }
+
+function submitWithdrawal() {
+  const email = sessionStorage.getItem("email");
+  const btc = parseFloat(document.getElementById("withdraw-btc").value);
+  const wallet = document.getElementById("withdraw-wallet").value.trim();
+
+  if (!email || isNaN(btc) || !wallet) {
+    showToast("❌ Please fill in all fields correctly.");
+    return;
+  }
+
+  // First, fetch the actual mined BTC from the database
+  fetch("/user/get-total-mined", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email })
+  })
+    .then(res => res.json())
+    .then(data => {
+      const totalMined = parseFloat(data.total_mined || 0);
+
+      if (btc > totalMined) {
+        showToast("⚠️ Insufficient BTC balance.");
+        return;
+      }
+
+      // Proceed to submit withdrawal request
+      fetch("/user/withdraw-now", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, btc, wallet })
+      })
+        .then(res => res.json())
+        .then(result => {
+          if (result.error) {
+            showToast("❌ " + result.error);
+          } else {
+            showToast("✅ Withdrawal request submitted. Awaiting admin approval.");
+            document.getElementById("withdraw-btc").value = "";
+            document.getElementById("withdraw-wallet").value = "";
+            closeWithdrawForm();
+          }
+        })
+        .catch(() => {
+          showToast("❌ Server error during withdrawal.");
+        });
+
+    })
+    .catch(() => {
+      showToast("❌ Could not verify BTC balance.");
+    });
+}
