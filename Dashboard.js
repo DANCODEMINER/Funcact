@@ -261,3 +261,34 @@ function fetchDashboardSummary() {
   fetchMyBTC();
   fetchMyHashrate();
 }
+
+function watchAd() {
+  const email = sessionStorage.getItem("email");
+
+  if (!email) {
+    showToast("❌ Session expired. Please log in.");
+    return;
+  }
+
+  fetch("/user/watch-ad", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.message) {
+        showToast("✅ " + data.message);
+        fetchMiningSettingsAndStartCounter(); // triggers mining
+        loadRecentHashSessions(); // updates session list
+        saveDashboardStateToBackend(); // save BTC/hashrate/etc
+        refreshDashboardView(); // show updates
+      } else if (data.error) {
+        showToast("❌ " + data.error);
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      showToast("❌ Failed to log ad watch.");
+    });
+}
