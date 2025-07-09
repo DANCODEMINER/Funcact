@@ -277,6 +277,36 @@ def get_total_mined():
         return jsonify({"total_mined": row[0]})
     return jsonify({"total_mined": 0})
 
+@app.post("/user/withdrawal-history")
+def withdrawal_history():
+    data = request.get_json()
+    email = data.get("email")
+
+    if not email:
+        return jsonify({"error": "Email required"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT amount, wallet, status, requested_at
+        FROM withdrawals
+        WHERE email = %s
+        ORDER BY requested_at DESC
+    """, (email,))
+    rows = cur.fetchall()
+    conn.close()
+
+    history = []
+    for row in rows:
+        history.append({
+            "amount": row[0],
+            "wallet": row[1],
+            "status": row[2],
+            "date": row[3].strftime("%Y-%m-%d %H:%M:%S")
+        })
+
+    return jsonify({"history": history})
+
 # Make sure to run app
 # app.run(debug=True)  # Uncomment to test locally
 
