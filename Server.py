@@ -178,6 +178,35 @@ def get_my_hashrate():
     hr = cursor.fetchone()[0]
     return jsonify({"hashrate": hr})
 
+@app.route("/user/watch-ad", methods=["POST"])
+def watch_ad():
+    data = request.get_json()
+    email = data.get("email")
+
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
+    # Example logic: boost hashrate and log session
+    hashrate_boost = 10  # Or any value based on your reward logic
+    duration = 60  # seconds (you can increase this to minutes if needed)
+
+    # Store a new mining session record
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO hash_sessions (email, power, duration, date)
+        VALUES (%s, %s, %s, NOW())
+    """, (email, hashrate_boost, duration))
+    
+    # Optionally update user's current hashrate (or track it elsewhere)
+    cur.execute("""
+        UPDATE users SET hashrate = hashrate + %s WHERE email = %s
+    """, (hashrate_boost, email))
+
+    conn.commit()
+    cur.close()
+
+    return jsonify({"message": f"Ad watched. Hashrate +{hashrate_boost} Th/s for {duration} sec."})
+
 # Make sure to run app
 # app.run(debug=True)  # Uncomment to test locally
 
