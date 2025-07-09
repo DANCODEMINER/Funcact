@@ -262,6 +262,21 @@ def withdraw_now():
 
     return jsonify({"message": "Withdrawal successful. BTC deducted."})
 
+@app.post("/user/get-total-mined")
+def get_total_mined():
+    data = request.get_json()
+    email = data.get("email")
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT total_mined FROM users WHERE email = %s", (email,))
+    row = cur.fetchone()
+    conn.close()
+
+    if row:
+        return jsonify({"total_mined": row[0]})
+    return jsonify({"total_mined": 0})
+
 # Make sure to run app
 # app.run(debug=True)  # Uncomment to test locally
 
